@@ -2,7 +2,7 @@
 
 import httpx
 from typing import List, Dict, Any, Optional
-from .config import OPENROUTER_API_KEY, OPENROUTER_API_URL
+from config import OPENROUTER_API_KEY, OPENROUTER_API_URL
 
 
 async def query_model(
@@ -12,14 +12,6 @@ async def query_model(
 ) -> Optional[Dict[str, Any]]:
     """
     Query a single model via OpenRouter API.
-
-    Args:
-        model: OpenRouter model identifier (e.g., "openai/gpt-4o")
-        messages: List of message dicts with 'role' and 'content'
-        timeout: Request timeout in seconds
-
-    Returns:
-        Response dict with 'content' and optional 'reasoning_details', or None if failed
     """
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -59,21 +51,11 @@ async def query_models_parallel(
 ) -> Dict[str, Optional[Dict[str, Any]]]:
     """
     Query multiple models in parallel.
-
-    Args:
-        models: List of OpenRouter model identifiers
-        messages: List of message dicts to send to each model
-
-    Returns:
-        Dict mapping model identifier to response dict (or None if failed)
     """
     import asyncio
 
-    # Create tasks for all models
     tasks = [query_model(model, messages) for model in models]
 
-    # Wait for all to complete
     responses = await asyncio.gather(*tasks)
 
-    # Map models to their responses
     return {model: response for model, response in zip(models, responses)}
