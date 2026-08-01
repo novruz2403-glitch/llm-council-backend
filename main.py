@@ -2,7 +2,7 @@
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any
 import uuid
@@ -11,10 +11,10 @@ import asyncio
 
 import storage
 from council import run_full_council, generate_conversation_title, stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final, calculate_aggregate_rankings
+from config import APP_PASSWORD
 
 app = FastAPI(title="LLM Council API")
 
-# Enable CORS (allow the Capacitor Android app + local dev to call this API)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -22,6 +22,32 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def require_password(request, call_next):
+    """Protect all /api routes (except login) with a shared password header."""
+    path = request.url.path
+    if APP_PASSWORD and path.startswith("/api") and path != "/api/auth/login":
+        supplied = request.headers.get("x-app-password", "")
+        if supplied != APP_PASSWORD:
+            return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+    return await call_next(request)
+
+
+class LoginRequest(BaseModel):
+    """Password login request."""
+    password: str
+
+
+@app.post("/api/auth/login")
+async def login(request: LoginRequest):
+    """Check the supplied password against APP_PASSWORD."""
+    if not APP_PASSWORD:
+        return {"ok": True}
+    if request.password == APP_PASSWORD:
+        return {"ok": True}
+    raise HTTPException(status_code=401, detail="Incorrect password")
 
 
 class CreateConversationRequest(BaseModel):
